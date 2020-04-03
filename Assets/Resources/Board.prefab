@@ -59,14 +59,18 @@ MonoBehaviour:
     type: 3}
   alliancePopupPrefab: {fileID: 6356503919154024120, guid: 707c51ab65bdecd4387a31f6654e1cf3,
     type: 3}
+  allianceAdjacencyIndicatorPrefab: {fileID: 8480050923240664096, guid: c5f8f30b7c6ac4449802e7a6a3fff6fe,
+    type: 3}
   photonView: {fileID: 6432445170395813416}
   sfxClack: {fileID: 9194417706601934487}
   sfxCapture: {fileID: -2512357384392486086}
+  manualUpdate: 0
   playerNames: []
   currentPlayerIndex: 0
   width: 0
   height: 0
   stones: 
+  captures: 
   alliances: 
   allianceRequest: -1
 --- !u!114 &6432445170395813416
@@ -200,7 +204,7 @@ AudioSource:
   m_audioClip: {fileID: 8300000, guid: 3b6c1e1fc0cd21f43a571c507aee5555, type: 3}
   m_PlayOnAwake: 0
   m_Volume: 1
-  m_Pitch: 0.74
+  m_Pitch: 0.53
   Loop: 0
   Mute: 0
   Spatialize: 0

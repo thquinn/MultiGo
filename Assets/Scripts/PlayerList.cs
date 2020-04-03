@@ -1,4 +1,5 @@
-﻿using Photon.Pun;
+﻿using ExitGames.Client.Photon;
+using Photon.Pun;
 using Photon.Realtime;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,10 +14,13 @@ public class PlayerList : MonoBehaviourPunCallbacks
     void Start() {
         UpdateList();
     }
-    public override void OnPlayerEnteredRoom(Player newPlayer) {
+    public override void OnPlayerEnteredRoom(Player player) {
         UpdateList();
     }
-    public override void OnPlayerLeftRoom(Player otherPlayer) {
+    public override void OnPlayerLeftRoom(Player player) {
+        UpdateList();
+    }
+    public override void OnPlayerPropertiesUpdate(Player player, ExitGames.Client.Photon.Hashtable changedProps) {
         UpdateList();
     }
     void UpdateList()

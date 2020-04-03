@@ -15,17 +15,19 @@ public class Board : MonoBehaviour, IPunObservable {
     public GameObject canvas;
     private LayerMask layerMaskBoardIntersection;
 
-    public GameObject boardLinePrefab, boardIntersectionPrefab, stonePrefab, stonePreviewPrefab, playerBubblesPrefab, alliancePopupPrefab;
+    public GameObject boardLinePrefab, boardIntersectionPrefab, stonePrefab, stonePreviewPrefab, playerBubblesPrefab, alliancePopupPrefab, allianceAdjacencyIndicatorPrefab;
     public PhotonView photonView;
     public AudioSource sfxClack, sfxCapture;
 
     // Networked fields.
+    public bool manualUpdate; // Changing the contents of arrays doesn't trigger a Photon update, so I flip this to force one.
     public string[] playerNames;
     public byte currentPlayerIndex;
     public int width;
     public int height;
     public byte[] stones;
-    public byte[] alliances;
+    public int[] captures;
+    public bool[] alliances;
     public int allianceRequest = -1;
 
     Dictionary<Collider2D, int> gridColliders;
@@ -33,6 +35,7 @@ public class Board : MonoBehaviour, IPunObservable {
     SpriteRenderer stonePreviewRenderer;
     PlayerBubbles playerBubbles;
     AlliancePopup alliancePopup;
+    Dictionary<Tuple<int, int, bool>, GameObject> allianceAdjacencyIndicators;
 
     void OnEnable() {
         GameObject playerList = GameObject.FindWithTag("PlayerList");
@@ -55,6 +58,7 @@ public class Board : MonoBehaviour, IPunObservable {
         DrawBoard();
 
         stoneObjects = new GameObject[stones.Length];
+        allianceAdjacencyIndicators = new Dictionary<Tuple<int, int, bool>, GameObject>();
     }
     void DrawBoard() {
         foreach (bool horizontal in new bool[] { false, true }) {
@@ -96,12 +100,13 @@ public class Board : MonoBehaviour, IPunObservable {
     public void InitPlayers(string[] playerNames) {
         //playerNames = new string[] { "Tom", "Mag", "Rez", "Dyl", "Wil", "Lau" };
         this.playerNames = playerNames;
-        alliances = new byte[playerNames.Length * playerNames.Length];
+        captures = new int[playerNames.Length];
+        alliances = new bool[playerNames.Length * playerNames.Length];
         for (int i = 0; i < playerNames.Length; i++) {
-            alliances[i * playerNames.Length + i] = (byte)1;
+            alliances[i * playerNames.Length + i] = true;
         }
         for (int i = 0; i < alliances.Length; i++) {
-            //alliances[i] = 1;
+            //alliances[i] = true;
         }
     }
 
@@ -127,10 +132,7 @@ public class Board : MonoBehaviour, IPunObservable {
         // Update stones.
         UpdateStoneObjects();
         // Active player controls.
-        if (playerNames == null || playerNames.Length == 0) {
-            return;
-        }
-        if (PhotonNetwork.LocalPlayer.NickName != playerNames[currentPlayerIndex]) {
+        if (!CanTakeMainAction(PhotonNetwork.LocalPlayer.NickName)) {
             if (stonePreviewRenderer != null) {
                 Color c = stonePreviewRenderer.color;
                 c.a = 0;
@@ -174,6 +176,9 @@ public class Board : MonoBehaviour, IPunObservable {
         KillResult killResult;
         foreach (var neighbor in NEIGHBORS) {
             killResult = CheckGroupKill(x + neighbor.Item1, y + neighbor.Item2, false);
+            if (killResult.kill) {
+                captures[currentPlayerIndex] += killResult.seen.Count;
+            }
             ExecuteKillResult(killResult);
         }
         killResult = CheckGroupKill(x, y, true);
@@ -181,6 +186,7 @@ public class Board : MonoBehaviour, IPunObservable {
         AdvanceCurrentPlayer();
     }
     void UpdateStoneObjects() {
+        // Stone objects.
         bool added = false, removed = false;
         for (int i = 0; i < stones.Length; i++) {
             byte player = stones[i];
@@ -202,6 +208,41 @@ public class Board : MonoBehaviour, IPunObservable {
         }
         if (removed) {
             sfxCapture.PlayDelayed(.15f);
+        }
+        // Alliance adjacency indicators.
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                byte thisPlayer = GetPlayerAt(x, y);
+                foreach (bool horizontal in new bool[] { false, true }) {
+                    if (horizontal && x == width - 1) {
+                        continue;
+                    }
+                    if (!horizontal && y == height - 1) {
+                        continue;
+                    }
+                    byte adjPlayer = GetPlayerAt(x + (horizontal ? 1 : 0), y + (horizontal ? 0 : 1));
+                    bool shouldExist = thisPlayer != NO_PLAYER && adjPlayer != NO_PLAYER && thisPlayer != adjPlayer && GetAlliance(thisPlayer, adjPlayer);
+                    Tuple<int, int, bool> tuple = new Tuple<int, int, bool>(x, y, horizontal);
+                    // Add missing indicators.
+                    if (shouldExist && !allianceAdjacencyIndicators.ContainsKey(tuple)) {
+                        GameObject indicator = Instantiate(allianceAdjacencyIndicatorPrefab, transform);
+                        Vector3 pos = GetCoor(x, y);
+                        if (horizontal) {
+                            pos.x += .5f;
+                        } else {
+                            pos.y -= .5f;
+                        }
+                        pos.z = -1;
+                        indicator.transform.localPosition = pos;
+                        allianceAdjacencyIndicators[tuple] = indicator;
+                    }
+                    // Remove old indicators.
+                    else if (!shouldExist && allianceAdjacencyIndicators.ContainsKey(tuple)) {
+                        Destroy(allianceAdjacencyIndicators[tuple]);
+                        allianceAdjacencyIndicators.Remove(tuple);
+                    }
+                }
+            }
         }
     }
     KillResult CheckGroupKill(int x, int y, bool allowSuicide) {
@@ -279,11 +320,11 @@ public class Board : MonoBehaviour, IPunObservable {
     }
 
     public bool GetAlliance(int one, int two) {
-        return alliances[one * playerNames.Length + two] == (byte)1;
+        return alliances[one * playerNames.Length + two];
     }
     void SetAlliance(int one, int two, bool allied) {
-        alliances[one * playerNames.Length + two] = allied ? (byte)1 : (byte)0;
-        alliances[two * playerNames.Length + one] = allied ? (byte)1 : (byte)0;
+        alliances[one * playerNames.Length + two] = allied;
+        alliances[two * playerNames.Length + one] = allied;
     }
     [PunRPC]
     public void RequestAlliance(int index, PhotonMessageInfo info) {
@@ -317,6 +358,7 @@ public class Board : MonoBehaviour, IPunObservable {
         }
         SetAlliance(currentPlayerIndex, index, false);
         BrokenAllianceKillCheck(currentPlayerIndex, index);
+        ManualUpdate();
         photonView.RPC("Log", RpcTarget.All, string.Format("{0} broke their alliance with {1}!", playerNames[currentPlayerIndex], playerNames[index]));
     }
     void BrokenAllianceKillCheck(int one, int two) {
@@ -335,6 +377,7 @@ public class Board : MonoBehaviour, IPunObservable {
                 KillResult killResult = CheckGroupKill(coor.Item1, coor.Item2, true);
                 seen.UnionWith(killResult.seen);
                 if (killResult.kill) {
+                    captures[GetPlayerAt(coor) == one ? two : one] += killResult.seen.Count;
                     toKill.AddRange(killResult.seen);
                 }
             }
@@ -351,31 +394,37 @@ public class Board : MonoBehaviour, IPunObservable {
 
     public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info) {
         if (stream.IsWriting) {
+            stream.SendNext(manualUpdate);
             stream.SendNext(playerNames);
             stream.SendNext(currentPlayerIndex);
             stream.SendNext(width);
             stream.SendNext(height);
             stream.SendNext(stones);
+            stream.SendNext(captures);
             stream.SendNext(alliances);
             stream.SendNext(allianceRequest);
         } else {
-            GameLog.Static("Received serialized view.");
+            manualUpdate = (bool)stream.ReceiveNext();
             playerNames = (string[])stream.ReceiveNext();
             currentPlayerIndex = (byte)stream.ReceiveNext();
             width = (int)stream.ReceiveNext();
             height = (int)stream.ReceiveNext();
             stones = (byte[])stream.ReceiveNext();
-            alliances = (byte[])stream.ReceiveNext();
+            captures = (int[])stream.ReceiveNext();
+            alliances = (bool[])stream.ReceiveNext();
             allianceRequest = (int)stream.ReceiveNext();
         }
+    }
+    void ManualUpdate() {
+        manualUpdate = !manualUpdate;
     }
 }
 
 struct KillResult {
-    public IEnumerable<Tuple<int, int>> seen;
+    public ICollection<Tuple<int, int>> seen;
     public bool kill;
 
-    public KillResult(IEnumerable<Tuple<int, int>> seen, bool kill = false) {
+    public KillResult(ICollection<Tuple<int, int>> seen, bool kill = false) {
         this.seen = seen;
         this.kill = kill;
     }

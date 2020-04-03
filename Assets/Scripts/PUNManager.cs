@@ -28,6 +28,18 @@ public class PUNManager : MonoBehaviourPunCallbacks
         GameLog.Static("Joined lobby.");
     }
     public override void OnJoinedRoom() {
+        // Deduplicate nickname.
+        string originalNickname = PhotonNetwork.LocalPlayer.NickName;
+        List<string> nicknames = PhotonNetwork.PlayerList.Select(p => p.NickName).ToList();
+        nicknames.Remove(originalNickname);
+        int attempt = 1;
+        string attemptedNickname = originalNickname;
+        while (nicknames.Contains(attemptedNickname, System.StringComparer.OrdinalIgnoreCase)) {
+            attempt++;
+            attemptedNickname = originalNickname + attempt;
+        }
+        PhotonNetwork.NickName = attemptedNickname;
+        // Finish joining room.
         playerList = Instantiate(playerListPrefab, canvas.transform);
         Destroy(roomInput);
         GameLog.Static(string.Format("Joined room {0}.", PhotonNetwork.CurrentRoom.Name));
@@ -44,6 +56,6 @@ public class PUNManager : MonoBehaviourPunCallbacks
         }
         board = PhotonNetwork.InstantiateSceneObject("Board", Vector3.zero, Quaternion.identity);
         Board boardScript = board.GetComponent<Board>();
-        boardScript.InitPlayers(PhotonNetwork.PlayerList.Select(p => p.NickName).ToArray().Shuffle().Take(Board.PLAYER_COLORS.Length).ToArray());
+        boardScript.InitPlayers(PhotonNetwork.PlayerList.Take(Board.PLAYER_COLORS.Length).Select(p => p.NickName).ToArray().Shuffle());
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Assets.Code;
 using Photon.Pun;
+using Photon.Realtime;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PlayerBubbles : MonoBehaviour
+public class PlayerBubbles : MonoBehaviourPunCallbacks
 {
     static Vector3 HOVER_SCALE = new Vector3(1.1f, 1.1f, 1);
 
@@ -15,9 +16,11 @@ public class PlayerBubbles : MonoBehaviour
     Camera cam;
 
     public GameObject playerBubblePrefab, boardLinePrefab;
+    public GameObject currentPlayerIndicator;
 
     Board board;
     List<Collider2D> colliders;
+    TextMeshProUGUI[] captureTexts;
     Dictionary<Tuple<int, int>, GameObject> allianceMarkers;
 
     void Start() {
@@ -29,22 +32,38 @@ public class PlayerBubbles : MonoBehaviour
     {
         this.board = board;
         colliders = new List<Collider2D>();
+        captureTexts = new TextMeshProUGUI[board.playerNames.Length];
         float d = 110;
         for (int i = 0; i < board.playerNames.Length; i++) {
             float angle = Mathf.PI / 2 - 2 * i * Mathf.PI / board.playerNames.Length;
             GameObject playerBubble = Instantiate(playerBubblePrefab, transform);
             playerBubble.transform.localPosition = new Vector3(Mathf.Cos(angle) * d, Mathf.Sin(angle) * d);
-            playerBubble.GetComponent<Image>().color = Board.PLAYER_COLORS[i];
-            playerBubble.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
+            playerBubble.transform.GetChild(1).GetComponent<Image>().color = Board.PLAYER_COLORS[i];
+            playerBubble.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
             colliders.Add(playerBubble.GetComponent<Collider2D>());
+            captureTexts[i] = playerBubble.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
+            if (board.IAmPlayer(board.playerNames[i])) {
+                playerBubble.transform.GetChild(0).gameObject.SetActive(true);
+            }
         }
+        currentPlayerIndicator.transform.SetAsLastSibling();
         allianceMarkers = new Dictionary<Tuple<int, int>, GameObject>();
     }
 
     void Update()
     {
+        currentPlayerIndicator.transform.localPosition = colliders[board.currentPlayerIndex].transform.localPosition;
+        UpdateCaptureTexts();
         UpdateAllianceMarkers();
         UpdateInput();
+    }
+    void UpdateCaptureTexts() {
+        if (captureTexts == null || captureTexts.Length == 0) {
+            return;
+        }
+        for (int i = 0; i < captureTexts.Length; i++) {
+            captureTexts[i].text = board.captures[i].ToString();
+        }
     }
     void UpdateAllianceMarkers() {
         for (int one = 0; one < board.playerNames.Length - 1; one++) {
@@ -57,8 +76,8 @@ public class PlayerBubbles : MonoBehaviour
                     Vector3 p1 = colliders[one].transform.localPosition;
                     Vector3 p2 = colliders[two].transform.localPosition;
                     // Bring line edges closer to center.
-                    p1 *= .9f;
-                    p2 *= .9f;
+                    p1 *= .8f;
+                    p2 *= .8f;
                     Vector3 d = p2 - p1;
                     GameObject allianceMarker = Instantiate(boardLinePrefab, transform);
                     Vector3 localPosition = (p1 + p2) / 2;
@@ -90,13 +109,21 @@ public class PlayerBubbles : MonoBehaviour
         if (Input.GetMouseButtonDown(0)) {
             int colliderIndex = colliders.IndexOf(mouseCollider);
             bool allied = board.GetAlliance(board.currentPlayerIndex, colliderIndex);
-            /*if (board.playerNames.Length == 2) {
+            if (board.playerNames.Length == 2) {
                 GameLog.Static("You can't request an alliance in a two-player game.");
-            } else */if (allied) {
+            } else if (allied) {
                 board.photonView.RPC("BreakAlliance", RpcTarget.MasterClient, colliderIndex);
             } else {
                 board.photonView.RPC("RequestAlliance", RpcTarget.MasterClient, colliderIndex);
             }
         }
+    }
+
+    // PUN callbacks.
+    public override void OnPlayerEnteredRoom(Player player) {
+        GameLog.Static(string.Format("{0} entered the room.", player.NickName));
+    }
+    public override void OnPlayerLeftRoom(Player player) {
+        GameLog.Static(string.Format("{0} left the room.", player.NickName));
     }
 }
