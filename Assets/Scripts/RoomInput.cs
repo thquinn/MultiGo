@@ -16,11 +16,15 @@ public class RoomInput : MonoBehaviour
         roomInput.onSubmit.AddListener(Next);
         nameInput.onSubmit.AddListener(Submit);
 
+        canvasGroup.alpha = 0;
         roomInput.ActivateInputField();
     }
     void Update()
     {
         canvasGroup.alpha += .05f;
+        if (PhotonNetwork.NetworkClientState == ClientState.JoinedLobby && !roomInput.isFocused && !nameInput.isFocused) {
+            roomInput.ActivateInputField();
+        }
         if (Input.GetKeyDown(KeyCode.Tab)) {
             if (roomInput.isFocused) {
                 nameInput.ActivateInputField();
@@ -59,9 +63,9 @@ public class RoomInput : MonoBehaviour
         }
         PhotonNetwork.NickName = name;
         RoomOptions roomOptions = new RoomOptions();
-        roomOptions.MaxPlayers = 8;
+        roomOptions.MaxPlayers = 16;
         roomOptions.PublishUserId = true;
         PhotonNetwork.JoinOrCreateRoom(room, roomOptions, TypedLobby.Default);
-        GameLog.Static(string.Format("Joining room {0}...", room));
+        GameLog.Static(string.Format("Connecting to room {0}...", room));
     }
 }

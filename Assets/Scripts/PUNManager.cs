@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PUNManager : MonoBehaviourPunCallbacks
 {
@@ -16,6 +17,9 @@ public class PUNManager : MonoBehaviourPunCallbacks
     void Start()
     {
         PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion = "0.01";
+        if (PhotonNetwork.IsConnected) {
+            PhotonNetwork.Disconnect();
+        }
         PhotonNetwork.ConnectUsingSettings();
         GameLog.Static("Connecting to server...");
     }
@@ -42,16 +46,26 @@ public class PUNManager : MonoBehaviourPunCallbacks
         // Finish joining room.
         playerList = Instantiate(playerListPrefab, canvas.transform);
         Destroy(roomInput);
-        GameLog.Static(string.Format("Joined room {0}.", PhotonNetwork.CurrentRoom.Name));
+        GameLog.Static(string.Format("{0} room {1}.", nicknames.Count == 0 ? "Created" : "Joined", PhotonNetwork.CurrentRoom.Name));
     }
 
     void Update() {
         if (Input.GetKeyDown(KeyCode.Return) && PhotonNetwork.InRoom && board == null) {
             StartGame();
         }
+        if (Input.GetKeyDown(KeyCode.Escape)) {
+            if (PhotonNetwork.InRoom) {
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            } else {
+                Application.Quit();
+            }
+        }
     }
     void StartGame() {
         if (!PhotonNetwork.IsMasterClient) {
+            return;
+        }
+        if (!Application.isEditor && PhotonNetwork.PlayerList.Length <= 1) {
             return;
         }
         board = PhotonNetwork.InstantiateSceneObject("Board", Vector3.zero, Quaternion.identity);

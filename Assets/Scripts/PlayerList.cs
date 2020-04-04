@@ -25,6 +25,16 @@ public class PlayerList : MonoBehaviourPunCallbacks
     }
     void UpdateList()
     {
-        tmp.text = "Players waiting:\n" + string.Join("\n", PhotonNetwork.PlayerList.Select(p => p.NickName));
+        string[] nicks = PhotonNetwork.PlayerList.Select(p => p.NickName).ToArray();
+        tmp.text = "Players waiting:\n" + string.Join("\n", nicks);
+        if (PhotonNetwork.IsMasterClient) {
+            if (nicks.Length <= 1) {
+                tmp.text += "\n\n<size=60%>Waiting for additional players...";
+            } else if (nicks.Length <= Board.PLAYER_COLORS.Length) {
+                tmp.text += "\n\n<size=60%>Press Enter to start the game with these players.";
+            } else {
+                tmp.text += string.Format("\n\n<size=60%>Press Enter to start the game with the first {0} players.", Board.PLAYER_COLORS.Length);
+            }
+        }
     }
 }

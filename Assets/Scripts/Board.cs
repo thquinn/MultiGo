@@ -8,7 +8,7 @@ using UnityEngine;
 
 public class Board : MonoBehaviour, IPunObservable {
     static byte NO_PLAYER = 255;
-    public static Color[] PLAYER_COLORS = new Color[] { new Color(1, 0, 0), new Color(0, .2f, 1), new Color(0, .85f, .05f), new Color(1, 1, 0), new Color(1, .7f, 0), new Color(1, 0, .8f) };
+    public static Color[] PLAYER_COLORS = new Color[] { new Color(1, .15f, .15f), new Color(.25f, .4f, 1), new Color(.22f, 1, .25f), new Color(1, 1, 0), new Color(1, .75f, .15f), new Color(.95f, 0, .75f) };
     static Tuple<int, int>[] NEIGHBORS = new Tuple<int, int>[] { new Tuple<int, int>(-1, 0), new Tuple<int, int>(1, 0), new Tuple<int, int>(0, -1), new Tuple<int, int>(0, 1) };
 
     private Camera cam;
@@ -90,7 +90,7 @@ public class Board : MonoBehaviour, IPunObservable {
             for (int x = -6; x <= 6; x += 6) {
                 for (int y = -6; y <= 6; y += 6) {
                     GameObject starPoint = Instantiate(stonePrefab, transform);
-                    starPoint.transform.localPosition = new Vector3(x, y, 0);
+                    starPoint.transform.localPosition = new Vector3(x, y, 1);
                     starPoint.transform.localScale = new Vector3(.25f, .25f, 1);
                     starPoint.GetComponent<SpriteRenderer>().color = Color.black;
                 }
@@ -182,6 +182,10 @@ public class Board : MonoBehaviour, IPunObservable {
             ExecuteKillResult(killResult);
         }
         killResult = CheckGroupKill(x, y, true);
+        if (killResult.kill) {
+            int count = killResult.seen.Count;
+            photonView.RPC("Log", RpcTarget.All, string.Format("{0} suicided {1} {2}.", playerNames[currentPlayerIndex], count, count == 1 ? "stone" : "stones"));
+        }
         ExecuteKillResult(killResult);
         AdvanceCurrentPlayer();
     }

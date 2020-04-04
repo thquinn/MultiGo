@@ -2,12 +2,13 @@
 {
     Properties
     {
-        _MainTex ("Texture", 2D) = "white" {}
+        _MainTex("_MainTex", 2D) = "white" {}
         _Theta("Theta", Range(0, 6.28)) = 0
     }
     SubShader
     {
         Tags { "Queue" = "Transparent" "RenderType" = "Transparent"}
+        Blend SrcAlpha OneMinusSrcAlpha
         LOD 100
 
         Pass
@@ -48,16 +49,17 @@
 
             fixed4 frag (v2f i) : SV_Target
             {
+                fixed4 col = tex2D(_MainTex, i.uv) * i.color;
                 i.uv *= 2;
                 i.uv -= float2(1, 1);
                 float theta = atan2(i.uv.y, -i.uv.x) + 3.14;
                 theta = (theta + 1.57) % 6.28;
                 float t = smoothstep(_Theta, _Theta - .02, theta) / 8;
-                fixed4 col = i.color;
                 col.r = lerp(col.r, 0, t);
                 col.g = lerp(col.g, 0, t);
                 col.b = lerp(col.b, 0, t);
                 return col;
+                
             }
             ENDCG
         }
