@@ -38,7 +38,7 @@ public class AlliancePopup : MonoBehaviour
         indicator.SetActive(mouseCollider != null);
         if (mouseCollider != null) {
             indicator.transform.localPosition = mouseCollider.transform.localPosition;
-            indicator.transform.Rotate(0, 0, .5f);
+            indicator.transform.Rotate(0, 0, -.5f);
             if (Input.GetMouseButtonDown(0)) {
                 board.photonView.RPC("RespondToAllianceRequest", Photon.Pun.RpcTarget.MasterClient, mouseCollider == colliders[0]);
             }

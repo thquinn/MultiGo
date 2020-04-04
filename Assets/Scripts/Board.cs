@@ -157,7 +157,7 @@ public class Board : MonoBehaviour, IPunObservable {
             stonePreviewRenderer.transform.localPosition = collider.transform.localPosition;
             color.a = Mathf.Min(1, color.a + .1f);
         }
-        stonePreviewRenderer.transform.Rotate(0, 0, .5f);
+        stonePreviewRenderer.transform.Rotate(0, 0, -.5f);
         // Stone placement.
         if (Input.GetMouseButtonDown(0) && collider != null) {
             photonView.RPC("PlaceStone", RpcTarget.MasterClient, coor);
