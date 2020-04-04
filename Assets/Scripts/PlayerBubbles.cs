@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 public class PlayerBubbles : MonoBehaviourPunCallbacks
 {
-    static Vector3 HOVER_SCALE = new Vector3(1.1f, 1.1f, 1);
+    static Vector3 HOVER_SCALE = new Vector3(1.05f, 1.05f, 1), CLICKING_SCALE = new Vector3(.9f, .9f, 1);
 
     private LayerMask layerMaskPlayerBubble;
     Camera cam;
@@ -20,8 +20,11 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
 
     Board board;
     List<Collider2D> colliders;
+    List<Material> materials;
     TextMeshProUGUI[] captureTexts;
     Dictionary<Tuple<int, int>, GameObject> allianceMarkers;
+    int clickFrames;
+    bool clickLockout;
 
     void Start() {
         layerMaskPlayerBubble = LayerMask.GetMask("PlayerBubble");
@@ -32,8 +35,9 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
     {
         this.board = board;
         colliders = new List<Collider2D>();
+        materials = new List<Material>();
         captureTexts = new TextMeshProUGUI[board.playerNames.Length];
-        float d = 110;
+        float d = 50 + board.playerNames.Length * 10;
         for (int i = 0; i < board.playerNames.Length; i++) {
             float angle = Mathf.PI / 2 - 2 * i * Mathf.PI / board.playerNames.Length;
             GameObject playerBubble = Instantiate(playerBubblePrefab, transform);
@@ -41,6 +45,9 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
             playerBubble.transform.GetChild(1).GetComponent<Image>().color = Board.PLAYER_COLORS[i];
             playerBubble.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
             colliders.Add(playerBubble.GetComponent<Collider2D>());
+            Image bubbleImage = playerBubble.transform.GetChild(1).GetComponent<Image>();
+            bubbleImage.material = Instantiate(bubbleImage.material);
+            materials.Add(bubbleImage.material);
             captureTexts[i] = playerBubble.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
             if (board.IAmPlayer(board.playerNames[i])) {
                 playerBubble.transform.GetChild(0).gameObject.SetActive(true);
@@ -96,17 +103,39 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
         }
     }
     void UpdateInput() {
-        Collider2D mouseCollider = board.IsCurrentPlayer(PhotonNetwork.LocalPlayer.NickName) ? Util.GetMouseCollider(cam, layerMaskPlayerBubble) : null;
+        bool canInput = board.CanTakeMainAction(PhotonNetwork.LocalPlayer.NickName);
+        Collider2D mouseCollider = canInput ? Util.GetMouseCollider(cam, layerMaskPlayerBubble) : null;
         if (mouseCollider == colliders[board.currentPlayerIndex]) {
             mouseCollider = null;
         }
-        foreach (Collider2D collider in colliders) {
-            collider.transform.localScale = Vector3.Lerp(collider.transform.localScale, mouseCollider == collider ? HOVER_SCALE : Vector3.one, .1f);
+        for (int i = 0; i < colliders.Count; i++) {
+            Collider2D collider = colliders[i];
+            
+            if (clickFrames > 0 && colliders[i] == mouseCollider) {
+                materials[i].SetFloat("_Theta", clickFrames / 60f * 2 * Mathf.PI);
+                Vector3 targetScale = Vector3.Lerp(HOVER_SCALE, CLICKING_SCALE, Mathf.Pow(clickFrames / 60f, .25f));
+                collider.transform.localScale = Vector3.Lerp(collider.transform.localScale, targetScale, .2f);
+            } else {
+                collider.transform.localScale = Vector3.Lerp(collider.transform.localScale, mouseCollider == collider ? HOVER_SCALE : Vector3.one, .2f);
+                materials[i].SetFloat("_Theta", 0);
+            }
+        }
+        if (clickLockout) {
+            if (Input.GetMouseButton(0)) {
+                return;
+            } else {
+                clickLockout = false;
+            }
+        }
+        if (mouseCollider != null && Input.GetMouseButton(0)) {
+            clickFrames++;
+        } else {
+            clickFrames = 0;
         }
         if (mouseCollider == null) {
             return;
         }
-        if (Input.GetMouseButtonDown(0)) {
+        if (clickFrames == 60) {
             int colliderIndex = colliders.IndexOf(mouseCollider);
             bool allied = board.GetAlliance(board.currentPlayerIndex, colliderIndex);
             if (board.playerNames.Length == 2) {
@@ -116,6 +145,8 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
             } else {
                 board.photonView.RPC("RequestAlliance", RpcTarget.MasterClient, colliderIndex);
             }
+            clickFrames = 0;
+            clickLockout = true;
         }
     }
 

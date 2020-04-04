@@ -98,7 +98,7 @@ public class Board : MonoBehaviour, IPunObservable {
         }
     }
     public void InitPlayers(string[] playerNames) {
-        //playerNames = new string[] { "Tom", "Mag", "Rez", "Dyl", "Wil", "Lau" };
+        //playerNames = new string[] { "A", "B", "C", "D", "E", "F" };
         this.playerNames = playerNames;
         captures = new int[playerNames.Length];
         alliances = new bool[playerNames.Length * playerNames.Length];
@@ -311,7 +311,7 @@ public class Board : MonoBehaviour, IPunObservable {
     public bool IAmPlayer(string name) {
         return PhotonNetwork.LocalPlayer.NickName.Equals(name, StringComparison.OrdinalIgnoreCase);
     }
-    bool CanTakeMainAction(string name) {
+    public bool CanTakeMainAction(string name) {
         return IsCurrentPlayer(name) && allianceRequest == -1;
     }
     void AdvanceCurrentPlayer() {

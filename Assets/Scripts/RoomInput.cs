@@ -46,7 +46,11 @@ public class RoomInput : MonoBehaviour
         return addedChar;
     }
     void Next(string s) {
-        nameInput.ActivateInputField();
+        if (s.Length == 0) {
+            roomInput.ActivateInputField();
+        } else {
+            nameInput.ActivateInputField();
+        }
     }
     void Submit(string s) {
         string room = roomInput.text, name = nameInput.text;
@@ -55,7 +59,7 @@ public class RoomInput : MonoBehaviour
         }
         PhotonNetwork.NickName = name;
         RoomOptions roomOptions = new RoomOptions();
-        roomOptions.MaxPlayers = 4;
+        roomOptions.MaxPlayers = 8;
         roomOptions.PublishUserId = true;
         PhotonNetwork.JoinOrCreateRoom(room, roomOptions, TypedLobby.Default);
         GameLog.Static(string.Format("Joining room {0}...", room));
