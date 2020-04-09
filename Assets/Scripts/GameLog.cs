@@ -1,6 +1,8 @@
-﻿using System;
+﻿using Photon.Pun;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -37,5 +39,19 @@ public class GameLog : MonoBehaviour
             alpha = Mathf.Min(alpha + FADE, 1);
         }
         tmp.text = stringBuilder.ToString();
+    }
+
+    public static void StaticMGG(string line) {
+        instance.AddToGameLog(line);
+    }
+    public void AddToGameLog(string line) {
+        if (!PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey("guid")) {
+            return;
+        }
+        string guid = (string)PhotonNetwork.CurrentRoom.CustomProperties["guid"];
+        string path = string.Format("{0}/{1}.mgg", Application.persistentDataPath, guid);
+        using(StreamWriter sw = File.AppendText(path)) {
+            sw.WriteLine(line);
+        }
     }
 }

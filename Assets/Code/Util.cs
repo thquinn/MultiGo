@@ -15,6 +15,17 @@ namespace Assets.Code {
             }
             return hit.collider;
         }
+
+        static string MGG_COOR_ALPHABET = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
+        public static string GetMGGCoorFromIndex(int width, int height, int i) {
+            int x = i % width, y = height - i / width;
+            string xString = "";
+            do {
+                xString = MGG_COOR_ALPHABET[x % MGG_COOR_ALPHABET.Length] + xString;
+                x /= MGG_COOR_ALPHABET.Length;
+            } while (x > 0);
+            return xString + y;
+        }
     }
 
     public static class ArrayExtensions {

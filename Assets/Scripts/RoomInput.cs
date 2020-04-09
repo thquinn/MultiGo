@@ -1,5 +1,6 @@
 ﻿using Photon.Pun;
 using Photon.Realtime;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -65,6 +66,8 @@ public class RoomInput : MonoBehaviour
         RoomOptions roomOptions = new RoomOptions();
         roomOptions.MaxPlayers = 16;
         roomOptions.PublishUserId = true;
+        roomOptions.CustomRoomProperties = new ExitGames.Client.Photon.Hashtable();
+        roomOptions.CustomRoomProperties.Add("guid", Guid.NewGuid().ToString());
         PhotonNetwork.JoinOrCreateRoom(room, roomOptions, TypedLobby.Default);
         GameLog.Static(string.Format("Connecting to room {0}...", room));
     }

@@ -108,6 +108,10 @@ public class Board : MonoBehaviour, IPunObservable {
         for (int i = 0; i < alliances.Length; i++) {
             //alliances[i] = true;
         }
+        for (int i = 0; i < playerNames.Length; i++) {
+            GameLog.StaticMGG(string.Format("P{0} {1}", i + 1, playerNames[i]));
+        }
+        GameLog.StaticMGG("");
     }
 
     void Update() {
@@ -187,6 +191,7 @@ public class Board : MonoBehaviour, IPunObservable {
             photonView.RPC("Log", RpcTarget.All, string.Format("{0} suicided {1} {2}.", playerNames[currentPlayerIndex], count, count == 1 ? "stone" : "stones"));
         }
         ExecuteKillResult(killResult);
+        GameLog.StaticMGG(string.Format("A{0} {1}", currentPlayerIndex + 1, Util.GetMGGCoorFromIndex(width, height, i)));
         AdvanceCurrentPlayer();
     }
     void UpdateStoneObjects() {
@@ -337,6 +342,7 @@ public class Board : MonoBehaviour, IPunObservable {
         }
         allianceRequest = index;
         photonView.RPC("Log", RpcTarget.All, string.Format("{0} sent an alliance request.", info.Sender.NickName));
+        GameLog.StaticMGG(string.Format("REQ{0} {1}", currentPlayerIndex + 1, allianceRequest + 1));
     }
     [PunRPC]
     public void RespondToAllianceRequest(bool yes, PhotonMessageInfo info) {
@@ -350,6 +356,7 @@ public class Board : MonoBehaviour, IPunObservable {
         } else {
             photonView.RPC("Log", RpcTarget.All, string.Format("{0}'s alliance request was denied.", playerNames[currentPlayerIndex]));
         }
+        GameLog.StaticMGG(yes ? "YES" : "NO");
         AdvanceCurrentPlayer();
     }
     [PunRPC]
@@ -364,6 +371,7 @@ public class Board : MonoBehaviour, IPunObservable {
         BrokenAllianceKillCheck(currentPlayerIndex, index);
         ManualUpdate();
         photonView.RPC("Log", RpcTarget.All, string.Format("{0} broke their alliance with {1}!", playerNames[currentPlayerIndex], playerNames[index]));
+        GameLog.StaticMGG(string.Format("BRK{0} {1}", currentPlayerIndex + 1, index + 1));
     }
     void BrokenAllianceKillCheck(int one, int two) {
         HashSet<Tuple<int, int>> seen = new HashSet<Tuple<int, int>>();
