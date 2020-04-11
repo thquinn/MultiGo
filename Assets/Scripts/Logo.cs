@@ -1,12 +1,18 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class Logo : MonoBehaviour
 {
     public GameObject connector;
+    public TextMeshProUGUI versionTMP;
 
     int frames = 0;
+
+    void Start() {
+        versionTMP.text = PUNManager.VERSION;
+    }
 
     // Update is called once per frame
     void Update()

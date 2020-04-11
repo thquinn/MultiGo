@@ -36,7 +36,8 @@ public class RoomInput : MonoBehaviour
     }
 
     char ValidateRoom(string text, int charIndex, char addedChar) {
-        if (text.Length >= 4) {
+        bool selection = roomInput.selectionAnchorPosition != roomInput.selectionStringFocusPosition;
+        if (text.Length >= 4 && !selection) {
             return '\0';
         }
         if (char.IsLetter(addedChar)) {
@@ -45,7 +46,8 @@ public class RoomInput : MonoBehaviour
         return '\0';
     }
     char ValidateName(string text, int charIndex, char addedChar) {
-        if (text.Length >= 8) {
+        bool selection = nameInput.selectionAnchorPosition != nameInput.selectionStringFocusPosition;
+        if (text.Length >= 8 && !selection) {
             return '\0';
         }
         return addedChar;
@@ -66,8 +68,6 @@ public class RoomInput : MonoBehaviour
         RoomOptions roomOptions = new RoomOptions();
         roomOptions.MaxPlayers = 16;
         roomOptions.PublishUserId = true;
-        roomOptions.CustomRoomProperties = new ExitGames.Client.Photon.Hashtable();
-        roomOptions.CustomRoomProperties.Add("guid", Guid.NewGuid().ToString());
         PhotonNetwork.JoinOrCreateRoom(room, roomOptions, TypedLobby.Default);
         GameLog.Static(string.Format("Connecting to room {0}...", room));
     }

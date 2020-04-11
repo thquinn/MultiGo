@@ -4,18 +4,24 @@ using Photon.Realtime;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class Board : MonoBehaviour, IPunObservable {
     static byte NO_PLAYER = 255;
-    public static Color[] PLAYER_COLORS = new Color[] { new Color(1, .15f, .15f), new Color(.25f, .4f, 1), new Color(.22f, 1, .25f), new Color(1, 1, 0), new Color(1, .75f, .15f), new Color(.95f, 0, .75f) };
+    public static Color[] PLAYER_COLORS = new Color[] { new Color(0.9058824f, 0.1843137f, 0.1960784f),
+                                                        new Color(0.254902f, 0.3764706f, 0.6666667f),
+                                                        new Color(.22f, 1, .25f),
+                                                        new Color(1, 1, 0),
+                                                        new Color(1, .75f, .15f),
+                                                        new Color(.95f, 0, .75f) };
     static Tuple<int, int>[] NEIGHBORS = new Tuple<int, int>[] { new Tuple<int, int>(-1, 0), new Tuple<int, int>(1, 0), new Tuple<int, int>(0, -1), new Tuple<int, int>(0, 1) };
 
     private Camera cam;
     public GameObject canvas;
     private LayerMask layerMaskBoardIntersection;
 
-    public GameObject boardLinePrefab, boardIntersectionPrefab, stonePrefab, stonePreviewPrefab, playerBubblesPrefab, alliancePopupPrefab, allianceAdjacencyIndicatorPrefab;
+    public GameObject boardLinePrefab, boardIntersectionPrefab, coordinateMarkerPrefab, stonePrefab, stonePreviewPrefab, playerBubblesPrefab, alliancePopupPrefab, allianceAdjacencyIndicatorPrefab, recentMoveIndicatorPrefab, captureIndicatorPrefab;
     public PhotonView photonView;
     public AudioSource sfxClack, sfxCapture;
 
@@ -32,10 +38,13 @@ public class Board : MonoBehaviour, IPunObservable {
 
     Dictionary<Collider2D, int> gridColliders;
     GameObject[] stoneObjects;
+    bool stoneObjectsPlaced;
     SpriteRenderer stonePreviewRenderer;
     PlayerBubbles playerBubbles;
     AlliancePopup alliancePopup;
     Dictionary<Tuple<int, int, bool>, GameObject> allianceAdjacencyIndicators;
+    Queue<GameObject> recentMoveIndicators;
+    List<GameObject> captureIndicators;
 
     void OnEnable() {
         GameObject playerList = GameObject.FindWithTag("PlayerList");
@@ -59,6 +68,8 @@ public class Board : MonoBehaviour, IPunObservable {
 
         stoneObjects = new GameObject[stones.Length];
         allianceAdjacencyIndicators = new Dictionary<Tuple<int, int, bool>, GameObject>();
+        recentMoveIndicators = new Queue<GameObject>();
+        captureIndicators = new List<GameObject>();
     }
     void DrawBoard() {
         foreach (bool horizontal in new bool[] { false, true }) {
@@ -75,6 +86,12 @@ public class Board : MonoBehaviour, IPunObservable {
                 float extraLength = outline ? 6 : 0;
                 float thickness = outline ? 6 : 4;
                 line.transform.localScale = new Vector3(length * 100 + extraLength, thickness, 1);
+                for (int coorMult = -1; coorMult <= 1; coorMult += 2) {
+                    GameObject coordinateMarker = Instantiate(coordinateMarkerPrefab, transform);
+                    float edgeCoor = (horizontal ? width : height) / 2f + .2f;
+                    coordinateMarker.transform.localPosition = new Vector3(horizontal ? edgeCoor * coorMult : pos, horizontal ? pos : edgeCoor * coorMult, 0);
+                    coordinateMarker.GetComponent<TextMeshPro>().text = horizontal ? (x + 1).ToString() : Util.GetCoorLetters(x);
+                }
             }
         }
         for (byte x = 0; x < width; x++) {
@@ -108,6 +125,8 @@ public class Board : MonoBehaviour, IPunObservable {
         for (int i = 0; i < alliances.Length; i++) {
             //alliances[i] = true;
         }
+
+        GameLog.StaticMGG(string.Format("S {0} {1}", width, height));
         for (int i = 0; i < playerNames.Length; i++) {
             GameLog.StaticMGG(string.Format("P{0} {1}", i + 1, playerNames[i]));
         }
@@ -191,12 +210,13 @@ public class Board : MonoBehaviour, IPunObservable {
             photonView.RPC("Log", RpcTarget.All, string.Format("{0} suicided {1} {2}.", playerNames[currentPlayerIndex], count, count == 1 ? "stone" : "stones"));
         }
         ExecuteKillResult(killResult);
-        GameLog.StaticMGG(string.Format("A{0} {1}", currentPlayerIndex + 1, Util.GetMGGCoorFromIndex(width, height, i)));
+        GameLog.StaticMGG(string.Format("{0} {1}", currentPlayerIndex + 1, Util.GetMGGCoorFromIndex(width, height, i)));
         AdvanceCurrentPlayer();
     }
     void UpdateStoneObjects() {
         // Stone objects.
         bool added = false, removed = false;
+        List<GameObject> newCaptureIndicators = null;
         for (int i = 0; i < stones.Length; i++) {
             byte player = stones[i];
             // Add missing stones.
@@ -205,18 +225,48 @@ public class Board : MonoBehaviour, IPunObservable {
                 stoneObjects[i].transform.localPosition = GetCoor(i % width, i / width);
                 stoneObjects[i].GetComponent<SpriteRenderer>().color = PLAYER_COLORS[player];
                 added = true;
+                if (!stoneObjectsPlaced) {
+                    stoneObjectsPlaced = true;
+                } else {
+                    GameObject recentMoveIndicator = Instantiate(recentMoveIndicatorPrefab, transform);
+                    Vector3 recentMovePos = stoneObjects[i].transform.localPosition;
+                    recentMovePos.z = -.1f;
+                    recentMoveIndicator.transform.localPosition = recentMovePos;
+                    recentMoveIndicators.Enqueue(recentMoveIndicator);
+                }
             }
             // Remove captured stones.
             else if (stoneObjects[i] != null && player == NO_PLAYER) {
+                Color captureColor = stoneObjects[i].GetComponent<SpriteRenderer>().color;
                 Destroy(stoneObjects[i]);
                 removed = true;
+                GameObject captureIndicator = Instantiate(captureIndicatorPrefab, transform);
+                captureIndicator.transform.localPosition = GetCoor(i % width, i / width);
+                foreach (SpriteRenderer sr in captureIndicator.GetComponentsInChildren<SpriteRenderer>()) {
+                    sr.color = captureColor;
+                }
+                if (newCaptureIndicators == null) {
+                    newCaptureIndicators = new List<GameObject>();
+                }
+                newCaptureIndicators.Add(captureIndicator);
             }
+        }
+        while (recentMoveIndicators.Count >= playerNames.Length) {
+            Destroy(recentMoveIndicators.Dequeue());
         }
         if (added) {
             sfxClack.Play();
         }
         if (removed) {
             sfxCapture.PlayDelayed(.15f);
+        }
+        if (added || removed) {
+            foreach (GameObject go in captureIndicators) {
+                Destroy(go);
+            }
+            if (newCaptureIndicators != null) {
+                captureIndicators = newCaptureIndicators;
+            }
         }
         // Alliance adjacency indicators.
         for (int x = 0; x < width; x++) {

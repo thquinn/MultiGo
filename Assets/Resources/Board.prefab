@@ -51,6 +51,8 @@ MonoBehaviour:
     type: 3}
   boardIntersectionPrefab: {fileID: 7289043281925729919, guid: fb5e0d55352d4da46b8843859e7c8599,
     type: 3}
+  coordinateMarkerPrefab: {fileID: 319603203873586098, guid: ed69a10f661ab0d459e48a763392df71,
+    type: 3}
   stonePrefab: {fileID: 6822859826371735342, guid: 682419390f66096478341d1bec8cc557,
     type: 3}
   stonePreviewPrefab: {fileID: 200267218211099448, guid: 29638e44904ec3641bd1e972e1a03616,
@@ -60,6 +62,10 @@ MonoBehaviour:
   alliancePopupPrefab: {fileID: 6356503919154024120, guid: 707c51ab65bdecd4387a31f6654e1cf3,
     type: 3}
   allianceAdjacencyIndicatorPrefab: {fileID: 8480050923240664096, guid: c5f8f30b7c6ac4449802e7a6a3fff6fe,
+    type: 3}
+  recentMoveIndicatorPrefab: {fileID: 3957313727788438239, guid: 7987e67b6e229324da36de26f6cd3886,
+    type: 3}
+  captureIndicatorPrefab: {fileID: 795368680319930679, guid: 1d5f0216758b7ed40b0e16d1463355bc,
     type: 3}
   photonView: {fileID: 6432445170395813416}
   sfxClack: {fileID: 9194417706601934487}

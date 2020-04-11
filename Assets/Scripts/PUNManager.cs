@@ -1,6 +1,7 @@
 ﻿using Assets.Code;
 using Photon.Pun;
 using Photon.Realtime;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,8 @@ using UnityEngine.SceneManagement;
 
 public class PUNManager : MonoBehaviourPunCallbacks
 {
+    public static string VERSION = "0.02";
+
     public Canvas canvas;
     public GameObject roomInputPrefab, playerListPrefab, boardPrefab;
 
@@ -16,7 +19,7 @@ public class PUNManager : MonoBehaviourPunCallbacks
 
     void Start()
     {
-        PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion = "0.01";
+        PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion = VERSION;
         if (PhotonNetwork.IsConnected) {
             PhotonNetwork.Disconnect();
         }
@@ -27,9 +30,29 @@ public class PUNManager : MonoBehaviourPunCallbacks
         PhotonNetwork.JoinLobby(TypedLobby.Default);
         GameLog.Static("Connected to server.");
     }
+    public override void OnDisconnected(DisconnectCause cause) {
+        if (cause == DisconnectCause.MaxCcuReached) {
+            GameLog.Static("The server's player cap has been reached. Try again later!");
+        } else if (cause == DisconnectCause.ExceptionOnConnect) {
+            GameLog.Static("Disconnected from the game server. Check your internet connection.");
+        } else {
+            GameLog.Static(string.Format("Couldn't connect due to unknown error: {0}", cause));
+        }
+        GameLog.Static("Quitting in 5 seconds...");
+        StartCoroutine("DelayedQuit");
+    }
+    IEnumerator DelayedQuit() {
+        yield return new WaitForSeconds(5);
+        Application.Quit();
+    }
     public override void OnJoinedLobby() {
         roomInput = Instantiate(roomInputPrefab, canvas.transform);
         GameLog.Static("Joined lobby.");
+    }
+    public override void OnCreatedRoom() {
+        ExitGames.Client.Photon.Hashtable roomProperties = new ExitGames.Client.Photon.Hashtable();
+        roomProperties.Add("guid", Guid.NewGuid().ToString());
+        PhotonNetwork.CurrentRoom.SetCustomProperties(roomProperties);
     }
     public override void OnJoinedRoom() {
         // Deduplicate nickname.
@@ -70,6 +93,6 @@ public class PUNManager : MonoBehaviourPunCallbacks
         }
         board = PhotonNetwork.InstantiateSceneObject("Board", Vector3.zero, Quaternion.identity);
         Board boardScript = board.GetComponent<Board>();
-        boardScript.InitPlayers(PhotonNetwork.PlayerList.Take(Board.PLAYER_COLORS.Length).Select(p => p.NickName).ToArray().Shuffle());
+        boardScript.InitPlayers(PhotonNetwork.PlayerList.Take(Board.PLAYER_COLORS.Length - 1).Select(p => p.NickName).ToArray().Shuffle());
     }
 }
