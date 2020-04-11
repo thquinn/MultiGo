@@ -27,7 +27,8 @@ public class AlliancePopup : MonoBehaviour
     }
     public void Set(Board board) {
         this.board = board;
-        tmp.text = string.Format("<color=#{0}><b>{1}</b></color> has offered you an alliance. Accept?", ColorUtility.ToHtmlStringRGB(Board.PLAYER_COLORS[board.currentPlayerIndex]), board.playerNames[board.currentPlayerIndex]);
+        Color color = Color.Lerp(Board.PLAYER_COLORS[board.currentPlayerIndex], Color.black, 0);
+        tmp.text = string.Format("<color=#{0}><b>{1}</b></color> has offered you an alliance. Accept?", ColorUtility.ToHtmlStringRGB(color), board.playerNames[board.currentPlayerIndex]);
     }
 
     // Update is called once per frame

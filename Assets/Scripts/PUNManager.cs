@@ -10,8 +10,6 @@ using UnityEngine.SceneManagement;
 
 public class PUNManager : MonoBehaviourPunCallbacks
 {
-    public static string VERSION = "0.02";
-
     public Canvas canvas;
     public GameObject roomInputPrefab, playerListPrefab, boardPrefab;
 
@@ -19,7 +17,7 @@ public class PUNManager : MonoBehaviourPunCallbacks
 
     void Start()
     {
-        PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion = VERSION;
+        PhotonNetwork.PhotonServerSettings.AppSettings.AppVersion = Application.version.ToString();
         if (PhotonNetwork.IsConnected) {
             PhotonNetwork.Disconnect();
         }

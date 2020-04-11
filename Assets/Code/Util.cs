@@ -23,7 +23,9 @@ namespace Assets.Code {
         }
         public static string GetCoorLetters(int x) {
             string xString = "";
+            x += 1;
             do {
+                x -= 1;
                 xString = MGG_COOR_ALPHABET[x % MGG_COOR_ALPHABET.Length] + xString;
                 x /= MGG_COOR_ALPHABET.Length;
             } while (x > 0);

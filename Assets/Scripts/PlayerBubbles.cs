@@ -20,6 +20,7 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
 
     Board board;
     List<Collider2D> colliders;
+    List<GameObject> bubbleVisuals;
     List<Material> materials;
     TextMeshProUGUI[] captureTexts;
     Dictionary<Tuple<int, int>, GameObject> allianceMarkers;
@@ -35,22 +36,25 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
     {
         this.board = board;
         colliders = new List<Collider2D>();
+        bubbleVisuals = new List<GameObject>();
         materials = new List<Material>();
         captureTexts = new TextMeshProUGUI[board.playerNames.Length];
         float d = 50 + board.playerNames.Length * 10;
         for (int i = 0; i < board.playerNames.Length; i++) {
-            float angle = Mathf.PI / 2 - 2 * i * Mathf.PI / board.playerNames.Length;
             GameObject playerBubble = Instantiate(playerBubblePrefab, transform);
-            playerBubble.transform.localPosition = new Vector3(Mathf.Cos(angle) * d, Mathf.Sin(angle) * d);
-            playerBubble.transform.GetChild(1).GetComponent<Image>().color = Board.PLAYER_COLORS[i];
-            playerBubble.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
             colliders.Add(playerBubble.GetComponent<Collider2D>());
-            Image bubbleImage = playerBubble.transform.GetChild(1).GetComponent<Image>();
+            GameObject bubbleVisual = playerBubble.transform.GetChild(0).gameObject;
+            bubbleVisuals.Add(bubbleVisual);
+            float angle = Mathf.PI / 2 - 2 * i * Mathf.PI / board.playerNames.Length;
+            playerBubble.transform.localPosition = new Vector3(Mathf.Cos(angle) * d, Mathf.Sin(angle) * d);
+            bubbleVisual.transform.GetChild(1).GetComponent<Image>().color = Board.PLAYER_COLORS[i];
+            bubbleVisual.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
+            Image bubbleImage = bubbleVisual.transform.GetChild(1).GetComponent<Image>();
             bubbleImage.material = Instantiate(bubbleImage.material);
             materials.Add(bubbleImage.material);
-            captureTexts[i] = playerBubble.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
+            captureTexts[i] = bubbleVisual.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
             if (board.IAmPlayer(board.playerNames[i])) {
-                playerBubble.transform.GetChild(0).gameObject.SetActive(true);
+                bubbleVisual.transform.GetChild(0).gameObject.SetActive(true);
             }
         }
         currentPlayerIndicator.transform.SetAsLastSibling();
@@ -114,9 +118,9 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
             if (clickFrames > 0 && colliders[i] == mouseCollider) {
                 materials[i].SetFloat("_Theta", clickFrames / 60f * 2 * Mathf.PI);
                 Vector3 targetScale = Vector3.Lerp(HOVER_SCALE, CLICKING_SCALE, Mathf.Pow(clickFrames / 60f, .25f));
-                collider.transform.localScale = Vector3.Lerp(collider.transform.localScale, targetScale, .2f);
+                bubbleVisuals[i].transform.localScale = Vector3.Lerp(bubbleVisuals[i].transform.localScale, targetScale, .2f);
             } else {
-                collider.transform.localScale = Vector3.Lerp(collider.transform.localScale, mouseCollider == collider ? HOVER_SCALE : Vector3.one, .2f);
+                bubbleVisuals[i].transform.localScale = Vector3.Lerp(bubbleVisuals[i].transform.localScale, mouseCollider == collider ? HOVER_SCALE : Vector3.one, .2f);
                 materials[i].SetFloat("_Theta", 0);
             }
         }

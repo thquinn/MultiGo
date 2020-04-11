@@ -8,13 +8,15 @@ using TMPro;
 using UnityEngine;
 
 public class Board : MonoBehaviour, IPunObservable {
+    static bool TEST_FLAG = true;
+
     static byte NO_PLAYER = 255;
     public static Color[] PLAYER_COLORS = new Color[] { new Color(0.9058824f, 0.1843137f, 0.1960784f),
                                                         new Color(0.254902f, 0.3764706f, 0.6666667f),
-                                                        new Color(.22f, 1, .25f),
-                                                        new Color(1, 1, 0),
-                                                        new Color(1, .75f, .15f),
-                                                        new Color(.95f, 0, .75f) };
+                                                        new Color(.966f, .966f, 0),
+                                                        new Color(0.004538993f, 0.9622642f, 0.3151309f),
+                                                        new Color(0.8679245f, 0, 0.6381932f),
+                                                        new Color(0.4392132f, 0.8095631f, 0.8867924f) };
     static Tuple<int, int>[] NEIGHBORS = new Tuple<int, int>[] { new Tuple<int, int>(-1, 0), new Tuple<int, int>(1, 0), new Tuple<int, int>(0, -1), new Tuple<int, int>(0, 1) };
 
     private Camera cam;
@@ -38,7 +40,6 @@ public class Board : MonoBehaviour, IPunObservable {
 
     Dictionary<Collider2D, int> gridColliders;
     GameObject[] stoneObjects;
-    bool stoneObjectsPlaced;
     SpriteRenderer stonePreviewRenderer;
     PlayerBubbles playerBubbles;
     AlliancePopup alliancePopup;
@@ -68,7 +69,6 @@ public class Board : MonoBehaviour, IPunObservable {
 
         stoneObjects = new GameObject[stones.Length];
         allianceAdjacencyIndicators = new Dictionary<Tuple<int, int, bool>, GameObject>();
-        recentMoveIndicators = new Queue<GameObject>();
         captureIndicators = new List<GameObject>();
     }
     void DrawBoard() {
@@ -115,7 +115,10 @@ public class Board : MonoBehaviour, IPunObservable {
         }
     }
     public void InitPlayers(string[] playerNames) {
-        //playerNames = new string[] { "A", "B", "C", "D", "E", "F" };
+        if (TEST_FLAG) {
+            playerNames = new string[] { "Alice", "Bob", "Carol", "Dan", "Eve", "Frank" };
+            PhotonNetwork.LocalPlayer.NickName = "Alice";
+        }
         this.playerNames = playerNames;
         captures = new int[playerNames.Length];
         alliances = new bool[playerNames.Length * playerNames.Length];
@@ -196,26 +199,38 @@ public class Board : MonoBehaviour, IPunObservable {
         stones[i] = currentPlayerIndex;
         // Find captured stones.
         int x = i % width, y = i / width;
-        KillResult killResult;
+        List<KillResult> killResults = new List<KillResult>();
         foreach (var neighbor in NEIGHBORS) {
-            killResult = CheckGroupKill(x + neighbor.Item1, y + neighbor.Item2, false);
-            if (killResult.kill) {
-                captures[currentPlayerIndex] += killResult.seen.Count;
+            KillResult result = CheckGroupKill(x + neighbor.Item1, y + neighbor.Item2, false);
+            if (result.kill) {
+                killResults.Add(result);
             }
+        }
+        // Execute these simultaneously, as they may be depedent upon each other:
+        // https://senseis.xmp.net/diagrams/5/91266184e7497955d87b8087fffb1ecf.png
+        HashSet<Tuple<int, int>> killCoors = new HashSet<Tuple<int, int>>();
+        foreach (KillResult killResult in killResults) {
+            killCoors.UnionWith(killResult.seen);
             ExecuteKillResult(killResult);
         }
-        killResult = CheckGroupKill(x, y, true);
-        if (killResult.kill) {
-            int count = killResult.seen.Count;
+        captures[currentPlayerIndex] += killCoors.Count;
+        // Check for suicide.
+        KillResult selfResult = CheckGroupKill(x, y, true);
+        if (selfResult.kill) {
+            int count = selfResult.seen.Count;
             photonView.RPC("Log", RpcTarget.All, string.Format("{0} suicided {1} {2}.", playerNames[currentPlayerIndex], count, count == 1 ? "stone" : "stones"));
         }
-        ExecuteKillResult(killResult);
+        ExecuteKillResult(selfResult);
         GameLog.StaticMGG(string.Format("{0} {1}", currentPlayerIndex + 1, Util.GetMGGCoorFromIndex(width, height, i)));
         AdvanceCurrentPlayer();
     }
     void UpdateStoneObjects() {
         // Stone objects.
         bool added = false, removed = false;
+        bool enableRecentMoveIndicators = recentMoveIndicators != null;
+        if (recentMoveIndicators == null) {
+            recentMoveIndicators = new Queue<GameObject>();
+        }
         List<GameObject> newCaptureIndicators = null;
         for (int i = 0; i < stones.Length; i++) {
             byte player = stones[i];
@@ -225,9 +240,7 @@ public class Board : MonoBehaviour, IPunObservable {
                 stoneObjects[i].transform.localPosition = GetCoor(i % width, i / width);
                 stoneObjects[i].GetComponent<SpriteRenderer>().color = PLAYER_COLORS[player];
                 added = true;
-                if (!stoneObjectsPlaced) {
-                    stoneObjectsPlaced = true;
-                } else {
+                if (!enableRecentMoveIndicators) {
                     GameObject recentMoveIndicator = Instantiate(recentMoveIndicatorPrefab, transform);
                     Vector3 recentMovePos = stoneObjects[i].transform.localPosition;
                     recentMovePos.z = -.1f;
@@ -376,6 +389,9 @@ public class Board : MonoBehaviour, IPunObservable {
     void AdvanceCurrentPlayer() {
         currentPlayerIndex = (byte)((currentPlayerIndex + 1) % playerNames.Length);
         allianceRequest = -1;
+        if (TEST_FLAG) {
+            PhotonNetwork.LocalPlayer.NickName = playerNames[currentPlayerIndex];
+        }
     }
 
     public bool GetAlliance(int one, int two) {
@@ -393,10 +409,13 @@ public class Board : MonoBehaviour, IPunObservable {
         allianceRequest = index;
         photonView.RPC("Log", RpcTarget.All, string.Format("{0} sent an alliance request.", info.Sender.NickName));
         GameLog.StaticMGG(string.Format("REQ{0} {1}", currentPlayerIndex + 1, allianceRequest + 1));
+        if (TEST_FLAG) {
+            PhotonNetwork.LocalPlayer.NickName = playerNames[allianceRequest];
+        }
     }
     [PunRPC]
     public void RespondToAllianceRequest(bool yes, PhotonMessageInfo info) {
-        int senderIndex = Array.IndexOf(playerNames, info.Sender.NickName);
+        int senderIndex = Array.FindIndex(playerNames, t => t.Equals(info.Sender.NickName, StringComparison.InvariantCultureIgnoreCase));
         if (senderIndex != allianceRequest) {
             return;
         }
@@ -419,7 +438,7 @@ public class Board : MonoBehaviour, IPunObservable {
         }
         SetAlliance(currentPlayerIndex, index, false);
         BrokenAllianceKillCheck(currentPlayerIndex, index);
-        ManualUpdate();
+        ManualUpdate(); // Photon doesn't check array contents to trigger serialization.
         photonView.RPC("Log", RpcTarget.All, string.Format("{0} broke their alliance with {1}!", playerNames[currentPlayerIndex], playerNames[index]));
         GameLog.StaticMGG(string.Format("BRK{0} {1}", currentPlayerIndex + 1, index + 1));
     }
@@ -430,7 +449,7 @@ public class Board : MonoBehaviour, IPunObservable {
             for (int y = 0; y < height; y++) {
                 Tuple<int, int> coor = new Tuple<int, int>(x, y);
                 byte player = GetPlayerAt(coor);
-                if (player != one && player != two) {
+                if (player == NO_PLAYER) {
                     continue;
                 }
                 if (seen.Contains(coor)) {
@@ -439,6 +458,8 @@ public class Board : MonoBehaviour, IPunObservable {
                 KillResult killResult = CheckGroupKill(coor.Item1, coor.Item2, true);
                 seen.UnionWith(killResult.seen);
                 if (killResult.kill) {
+                    // The current player gets credit for all captures except of their own stones,
+                    // which go to their former ally.
                     captures[GetPlayerAt(coor) == one ? two : one] += killResult.seen.Count;
                     toKill.AddRange(killResult.seen);
                 }

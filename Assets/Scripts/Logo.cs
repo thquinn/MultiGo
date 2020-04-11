@@ -11,7 +11,7 @@ public class Logo : MonoBehaviour
     int frames = 0;
 
     void Start() {
-        versionTMP.text = PUNManager.VERSION;
+        versionTMP.text = "v" + Application.version.ToString();
     }
 
     // Update is called once per frame
