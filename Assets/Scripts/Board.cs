@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 
 public class Board : MonoBehaviour, IPunObservable {
-    static bool TEST_FLAG = false;//true;
+    static bool TEST_FLAG = true;
 
     static byte NO_PLAYER = 255;
     public static Color[] PLAYER_COLORS = new Color[] { new Color(0.9058824f, 0.1843137f, 0.1960784f),
@@ -470,6 +470,17 @@ public class Board : MonoBehaviour, IPunObservable {
         if (toKill.Count > 0) {
             ExecuteKillResult(new KillResult(toKill, true));
         }
+    }
+    [PunRPC]
+    public void Pass(PhotonMessageInfo info) {
+        if (!IsCurrentPlayer(info.Sender.NickName)) {
+            return;
+        }
+        if (allianceRequest >= 0) {
+            return;
+        }
+        photonView.RPC("Log", RpcTarget.All, string.Format("{0} passes.", playerNames[currentPlayerIndex]));
+        AdvanceCurrentPlayer();
     }
 
     [PunRPC]

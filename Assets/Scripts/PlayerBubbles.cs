@@ -11,6 +11,7 @@ using UnityEngine.UI;
 public class PlayerBubbles : MonoBehaviourPunCallbacks
 {
     static Vector3 HOVER_SCALE = new Vector3(1.05f, 1.05f, 1), CLICKING_SCALE = new Vector3(.9f, .9f, 1);
+    static float PASS_SCALE = .6f;
 
     private LayerMask layerMaskPlayerBubble;
     Camera cam;
@@ -40,21 +41,32 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
         materials = new List<Material>();
         captureTexts = new TextMeshProUGUI[board.playerNames.Length];
         float d = 50 + board.playerNames.Length * 10;
-        for (int i = 0; i < board.playerNames.Length; i++) {
+        for (int i = 0; i <= board.playerNames.Length; i++) {
             GameObject playerBubble = Instantiate(playerBubblePrefab, transform);
             colliders.Add(playerBubble.GetComponent<Collider2D>());
             GameObject bubbleVisual = playerBubble.transform.GetChild(0).gameObject;
             bubbleVisuals.Add(bubbleVisual);
-            float angle = Mathf.PI / 2 - 2 * i * Mathf.PI / board.playerNames.Length;
-            playerBubble.transform.localPosition = new Vector3(Mathf.Cos(angle) * d, Mathf.Sin(angle) * d);
-            bubbleVisual.transform.GetChild(1).GetComponent<Image>().color = Board.PLAYER_COLORS[i];
-            bubbleVisual.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
             Image bubbleImage = bubbleVisual.transform.GetChild(1).GetComponent<Image>();
             bubbleImage.material = Instantiate(bubbleImage.material);
             materials.Add(bubbleImage.material);
-            captureTexts[i] = bubbleVisual.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
-            if (board.IAmPlayer(board.playerNames[i])) {
+            if (i < board.playerNames.Length) {
+                float angle = Mathf.PI / 2 - 2 * i * Mathf.PI / board.playerNames.Length;
+                playerBubble.transform.localPosition = new Vector3(Mathf.Cos(angle) * d, Mathf.Sin(angle) * d);
+                bubbleVisual.transform.GetChild(1).GetComponent<Image>().color = Board.PLAYER_COLORS[i];
+                bubbleVisual.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = board.playerNames[i];
+                captureTexts[i] = bubbleVisual.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
+                if (board.IAmPlayer(board.playerNames[i])) {
+                    bubbleVisual.transform.GetChild(0).gameObject.SetActive(true);
+                }
+            } else {
+                playerBubble.transform.localPosition = new Vector3(-100, 150, 0);
+                playerBubble.transform.localScale = new Vector3(PASS_SCALE, PASS_SCALE, 1);
                 bubbleVisual.transform.GetChild(0).gameObject.SetActive(true);
+                bubbleVisual.transform.GetChild(1).GetComponent<Image>().color = new Color(.9f, .9f, .9f);
+                bubbleVisual.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = "PASS";
+                bubbleVisual.transform.GetChild(2).localPosition = Vector3.zero;
+                bubbleVisual.transform.GetChild(3).gameObject.SetActive(false);
+                bubbleVisual.transform.GetChild(4).gameObject.SetActive(false);
             }
         }
         currentPlayerIndicator.transform.SetAsLastSibling();
@@ -141,13 +153,19 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
         }
         if (clickFrames == 60) {
             int colliderIndex = colliders.IndexOf(mouseCollider);
-            bool allied = board.GetAlliance(board.currentPlayerIndex, colliderIndex);
-            if (board.playerNames.Length == 2) {
-                GameLog.Static("No alliances in two-player games!");
-            } else if (allied) {
-                board.photonView.RPC("BreakAlliance", RpcTarget.MasterClient, colliderIndex);
+            if (colliderIndex == board.playerNames.Length) {
+                // Passing.
+                board.photonView.RPC("Pass", RpcTarget.MasterClient);
             } else {
-                board.photonView.RPC("RequestAlliance", RpcTarget.MasterClient, colliderIndex);
+                // Alliance stuff.
+                bool allied = board.GetAlliance(board.currentPlayerIndex, colliderIndex);
+                if (board.playerNames.Length == 2) {
+                    GameLog.Static("No alliances in two-player games!");
+                } else if (allied) {
+                    board.photonView.RPC("BreakAlliance", RpcTarget.MasterClient, colliderIndex);
+                } else {
+                    board.photonView.RPC("RequestAlliance", RpcTarget.MasterClient, colliderIndex);
+                }
             }
             clickFrames = 0;
             clickLockout = true;
