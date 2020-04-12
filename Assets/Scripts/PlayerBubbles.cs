@@ -63,7 +63,11 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
                 playerBubble.transform.localScale = new Vector3(PASS_SCALE, PASS_SCALE, 1);
                 bubbleVisual.transform.GetChild(0).gameObject.SetActive(true);
                 bubbleVisual.transform.GetChild(1).GetComponent<Image>().color = new Color(.9f, .9f, .9f);
-                bubbleVisual.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = "PASS";
+                TextMeshProUGUI passText = bubbleVisual.transform.GetChild(2).GetComponent<TextMeshProUGUI>();
+                passText.color = Color.black;
+                passText.fontSharedMaterial = Instantiate(passText.fontSharedMaterial);
+                passText.fontSharedMaterial.SetFloat(ShaderUtilities.ID_FaceDilate, 0);
+                passText.text = "PASS";
                 bubbleVisual.transform.GetChild(2).localPosition = Vector3.zero;
                 bubbleVisual.transform.GetChild(3).gameObject.SetActive(false);
                 bubbleVisual.transform.GetChild(4).gameObject.SetActive(false);

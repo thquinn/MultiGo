@@ -16,7 +16,7 @@ MonoBehaviour:
     AppIdRealtime: fdc0f426-f3dc-4824-afe8-bdab1d85e97d
     AppIdChat: 
     AppIdVoice: 
-    AppVersion: 0.01
+    AppVersion: 0.02
     UseNameServer: 1
     FixedRegion: 
     Server: 
@@ -41,6 +41,7 @@ MonoBehaviour:
   - BreakAlliance
   - RespondToAllianceRequest
   - Log
+  - Pass
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 1

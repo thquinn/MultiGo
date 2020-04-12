@@ -117,7 +117,7 @@ public class Board : MonoBehaviour, IPunObservable {
     }
     public void InitPlayers(string[] playerNames) {
         if (TEST_FLAG) {
-            playerNames = new string[] { "Alice", "Bob", "Carol", "Dan", "Eve", "Frank" };
+            playerNames = new string[] { "Alice", "Bob", "Carol", "Dan"};//, "Frank" };
             PhotonNetwork.LocalPlayer.NickName = "Alice";
         }
         this.playerNames = playerNames;
