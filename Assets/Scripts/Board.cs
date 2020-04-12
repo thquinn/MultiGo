@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 
 public class Board : MonoBehaviour, IPunObservable {
-    static bool TEST_FLAG = true;
+    static bool TEST_FLAG = false;
 
     static byte NO_PLAYER = 255;
     public static Color[] PLAYER_COLORS = new Color[] { new Color(0.9058824f, 0.1843137f, 0.1960784f),
