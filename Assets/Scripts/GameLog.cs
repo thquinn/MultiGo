@@ -1,4 +1,5 @@
-﻿using Photon.Pun;
+﻿using Assets.Code;
+using Photon.Pun;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,16 +13,34 @@ public class GameLog : MonoBehaviour
     public static GameLog instance;
     static float FADE = .34f;
 
-    public TextMeshProUGUI tmp;
+    private Camera cam;
+    private LayerMask layerMaskBoardIntersection;
 
+    public TextMeshProUGUI logTMP, gridCoorTMP, roomTMP;
+
+    Board board;
     List<string> lines;
     StringBuilder stringBuilder;
 
     void Start() {
+        cam = Camera.main;
+        layerMaskBoardIntersection = LayerMask.GetMask("BoardIntersection");
+
         instance = this;
-        tmp.text = "";
+        logTMP.text = "";
         lines = new List<string>();
         stringBuilder = new StringBuilder();
+    }
+    public static void Associate(Board board) {
+        instance.board = board;
+    }
+    void Update() {
+        if (board == null) {
+            return;
+        }
+        Collider2D collider = Util.GetMouseCollider(cam, layerMaskBoardIntersection);
+        gridCoorTMP.text = collider == null ? "" : Util.GetMGGCoorFromIndex(board.width, board.height, board.gridColliders[collider]);
+        roomTMP.text = "Room: " + PhotonNetwork.CurrentRoom.Name;
     }
 
     public static void Static(string line) {
@@ -38,7 +57,7 @@ public class GameLog : MonoBehaviour
             stringBuilder.AppendLine(string.Format("<alpha=#{0}>{1}", Mathf.CeilToInt(alpha * 255).ToString("X"), l));
             alpha = Mathf.Min(alpha + FADE, 1);
         }
-        tmp.text = stringBuilder.ToString();
+        logTMP.text = stringBuilder.ToString();
     }
 
     public static void StaticMGG(string line) {

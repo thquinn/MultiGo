@@ -26,7 +26,7 @@ public class PlayerList : MonoBehaviourPunCallbacks
     void UpdateList()
     {
         string[] nicks = PhotonNetwork.PlayerList.Select(p => p.NickName).ToArray();
-        tmp.text = "Players waiting:\n" + string.Join("\n", nicks);
+        tmp.text = string.Format("Players waiting in room {0}:\n{1}", PhotonNetwork.CurrentRoom.Name, string.Join("\n", nicks));
         if (PhotonNetwork.IsMasterClient) {
             if (nicks.Length <= 1) {
                 tmp.text += "\n\n<size=60%>Waiting for additional players...";

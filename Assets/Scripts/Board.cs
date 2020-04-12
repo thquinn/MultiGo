@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 
 public class Board : MonoBehaviour, IPunObservable {
-    static bool TEST_FLAG = true;
+    static bool TEST_FLAG = false;//true;
 
     static byte NO_PLAYER = 255;
     public static Color[] PLAYER_COLORS = new Color[] { new Color(0.9058824f, 0.1843137f, 0.1960784f),
@@ -19,8 +19,8 @@ public class Board : MonoBehaviour, IPunObservable {
                                                         new Color(0.4392132f, 0.8095631f, 0.8867924f) };
     static Tuple<int, int>[] NEIGHBORS = new Tuple<int, int>[] { new Tuple<int, int>(-1, 0), new Tuple<int, int>(1, 0), new Tuple<int, int>(0, -1), new Tuple<int, int>(0, 1) };
 
-    private Camera cam;
     public GameObject canvas;
+    private Camera cam;
     private LayerMask layerMaskBoardIntersection;
 
     public GameObject boardLinePrefab, boardIntersectionPrefab, coordinateMarkerPrefab, stonePrefab, stonePreviewPrefab, playerBubblesPrefab, alliancePopupPrefab, allianceAdjacencyIndicatorPrefab, recentMoveIndicatorPrefab, captureIndicatorPrefab;
@@ -38,7 +38,7 @@ public class Board : MonoBehaviour, IPunObservable {
     public bool[] alliances;
     public int allianceRequest = -1;
 
-    Dictionary<Collider2D, int> gridColliders;
+    public Dictionary<Collider2D, int> gridColliders;
     GameObject[] stoneObjects;
     SpriteRenderer stonePreviewRenderer;
     PlayerBubbles playerBubbles;
@@ -48,6 +48,7 @@ public class Board : MonoBehaviour, IPunObservable {
     List<GameObject> captureIndicators;
 
     void OnEnable() {
+        GameLog.Associate(this);
         GameObject playerList = GameObject.FindWithTag("PlayerList");
         if (playerList != null) {
             Destroy(playerList);
@@ -206,7 +207,14 @@ public class Board : MonoBehaviour, IPunObservable {
                 killResults.Add(result);
             }
         }
-        // Execute these simultaneously, as they may be depedent upon each other:
+        // Check for suicide.
+        KillResult selfResult = CheckGroupKill(x, y, true);
+        if (selfResult.kill && killResults.Count == 0) {
+            stones[i] = NO_PLAYER;
+            photonView.RPC("Log", info.Sender, "No suicide allowed!");
+            return;
+        }
+        // Perform all captures simultaneously, as they may be depedent upon each other:
         // https://senseis.xmp.net/diagrams/5/91266184e7497955d87b8087fffb1ecf.png
         HashSet<Tuple<int, int>> killCoors = new HashSet<Tuple<int, int>>();
         foreach (KillResult killResult in killResults) {
@@ -214,16 +222,10 @@ public class Board : MonoBehaviour, IPunObservable {
             ExecuteKillResult(killResult);
         }
         captures[currentPlayerIndex] += killCoors.Count;
-        // Check for suicide.
-        KillResult selfResult = CheckGroupKill(x, y, true);
-        if (selfResult.kill) {
-            int count = selfResult.seen.Count;
-            photonView.RPC("Log", RpcTarget.All, string.Format("{0} suicided {1} {2}.", playerNames[currentPlayerIndex], count, count == 1 ? "stone" : "stones"));
-        }
-        ExecuteKillResult(selfResult);
         GameLog.StaticMGG(string.Format("{0} {1}", currentPlayerIndex + 1, Util.GetMGGCoorFromIndex(width, height, i)));
         AdvanceCurrentPlayer();
     }
+
     void UpdateStoneObjects() {
         // Stone objects.
         bool added = false, removed = false;

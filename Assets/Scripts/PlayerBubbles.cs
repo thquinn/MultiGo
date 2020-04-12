@@ -143,7 +143,7 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
             int colliderIndex = colliders.IndexOf(mouseCollider);
             bool allied = board.GetAlliance(board.currentPlayerIndex, colliderIndex);
             if (board.playerNames.Length == 2) {
-                GameLog.Static("You can't request an alliance in a two-player game.");
+                GameLog.Static("No alliances in two-player games!");
             } else if (allied) {
                 board.photonView.RPC("BreakAlliance", RpcTarget.MasterClient, colliderIndex);
             } else {
