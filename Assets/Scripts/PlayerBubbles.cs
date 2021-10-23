@@ -159,16 +159,28 @@ public class PlayerBubbles : MonoBehaviourPunCallbacks
             int colliderIndex = colliders.IndexOf(mouseCollider);
             if (colliderIndex == board.playerNames.Length) {
                 // Passing.
-                board.photonView.RPC("Pass", RpcTarget.MasterClient);
+                if (PUNManager.hotseatMode) {
+                    board.Pass(new PhotonMessageInfo());
+                } else {
+                    board.photonView.RPC("Pass", RpcTarget.MasterClient);
+                }
             } else {
                 // Alliance stuff.
                 bool allied = board.GetAlliance(board.currentPlayerIndex, colliderIndex);
                 if (board.playerNames.Length == 2) {
                     GameLog.Static("No alliances in two-player games!");
                 } else if (allied) {
-                    board.photonView.RPC("BreakAlliance", RpcTarget.MasterClient, colliderIndex);
+                    if (PUNManager.hotseatMode) {
+                        board.BreakAlliance(colliderIndex, new PhotonMessageInfo());
+                    } else {
+                        board.photonView.RPC("BreakAlliance", RpcTarget.MasterClient, colliderIndex);
+                    }
                 } else {
-                    board.photonView.RPC("RequestAlliance", RpcTarget.MasterClient, colliderIndex);
+                    if (PUNManager.hotseatMode) {
+                        board.RequestAlliance(colliderIndex, new PhotonMessageInfo());
+                    } else {
+                        board.photonView.RPC("RequestAlliance", RpcTarget.MasterClient, colliderIndex);
+                    }
                 }
             }
             clickFrames = 0;

@@ -117,7 +117,7 @@ public class Board : MonoBehaviour, IPunObservable {
     }
     public void InitPlayers(string[] playerNames) {
         if (TEST_FLAG) {
-            playerNames = new string[] { "Alice", "Bob", "Carol", "Dan"};//, "Frank" };
+            playerNames = new string[] { "Alice", "Bob", "Carol", "Dan", "Edna" };
             PhotonNetwork.LocalPlayer.NickName = "Alice";
         }
         this.playerNames = playerNames;
@@ -175,9 +175,11 @@ public class Board : MonoBehaviour, IPunObservable {
         // Stone preview.
         if (stonePreviewRenderer == null) {
             stonePreviewRenderer = Instantiate(stonePreviewPrefab, transform).GetComponent<SpriteRenderer>();
-            stonePreviewRenderer.color = PLAYER_COLORS[currentPlayerIndex];
         }
         Color color = stonePreviewRenderer.color;
+        color.r = PLAYER_COLORS[currentPlayerIndex].r;
+        color.g = PLAYER_COLORS[currentPlayerIndex].g;
+        color.b = PLAYER_COLORS[currentPlayerIndex].b;
         if (collider == null) {
             color.a = Mathf.Max(0, color.a - .2f);
         } else {
@@ -187,14 +189,18 @@ public class Board : MonoBehaviour, IPunObservable {
         stonePreviewRenderer.transform.Rotate(0, 0, -.5f);
         // Stone placement.
         if (Input.GetMouseButtonDown(0) && collider != null) {
-            photonView.RPC("PlaceStone", RpcTarget.MasterClient, coor);
+            if (PUNManager.hotseatMode) {
+                PlaceStone(coor, new PhotonMessageInfo());
+            } else {
+                photonView.RPC("PlaceStone", RpcTarget.MasterClient, coor);
+            }
             color.a = 0;
         }
         stonePreviewRenderer.color = color;
     }
     [PunRPC]
     void PlaceStone(int i, PhotonMessageInfo info) {
-        if (!CanTakeMainAction(info.Sender.NickName)) {
+        if (!PUNManager.hotseatMode && !CanTakeMainAction(info.Sender.NickName)) {
             return;
         }
         stones[i] = currentPlayerIndex;
@@ -211,7 +217,11 @@ public class Board : MonoBehaviour, IPunObservable {
         KillResult selfResult = CheckGroupKill(x, y, true);
         if (selfResult.kill && killResults.Count == 0) {
             stones[i] = NO_PLAYER;
-            photonView.RPC("Log", info.Sender, "No suicide allowed!");
+            if (PUNManager.hotseatMode) {
+                GameLog.Static("No suicide allowed!");
+            } else {
+                photonView.RPC("Log", info.Sender, "No suicide allowed!");
+            }
             return;
         }
         // Perform all captures simultaneously, as they may be depedent upon each other:
@@ -223,6 +233,11 @@ public class Board : MonoBehaviour, IPunObservable {
         }
         captures[currentPlayerIndex] += killCoors.Count;
         GameLog.StaticMGG(string.Format("{0} {1}", currentPlayerIndex + 1, Util.GetMGGCoorFromIndex(width, height, i)));
+        if (PUNManager.hotseatMode && stonePreviewRenderer != null) {
+            Color c = stonePreviewRenderer.color;
+            c.a = 0;
+            stonePreviewRenderer.color = c;
+        }
         AdvanceCurrentPlayer();
     }
 
@@ -380,10 +395,10 @@ public class Board : MonoBehaviour, IPunObservable {
         return new Vector3(x - midX, -y + midY);
     }
     public bool IsCurrentPlayer(string name) {
-        return name.Equals(playerNames[currentPlayerIndex], StringComparison.OrdinalIgnoreCase);
+        return PUNManager.hotseatMode || name.Equals(playerNames[currentPlayerIndex], StringComparison.OrdinalIgnoreCase);
     }
     public bool IAmPlayer(string name) {
-        return PhotonNetwork.LocalPlayer.NickName.Equals(name, StringComparison.OrdinalIgnoreCase);
+        return PUNManager.hotseatMode || PhotonNetwork.LocalPlayer.NickName.Equals(name, StringComparison.OrdinalIgnoreCase);
     }
     public bool CanTakeMainAction(string name) {
         return IsCurrentPlayer(name) && allianceRequest == -1;
@@ -405,11 +420,11 @@ public class Board : MonoBehaviour, IPunObservable {
     }
     [PunRPC]
     public void RequestAlliance(int index, PhotonMessageInfo info) {
-        if (!CanTakeMainAction(info.Sender.NickName)) {
+        if (!PUNManager.hotseatMode && !CanTakeMainAction(info.Sender.NickName)) {
             return;
         }
         allianceRequest = index;
-        photonView.RPC("Log", RpcTarget.All, string.Format("{0} sent an alliance request.", info.Sender.NickName));
+        BroadcastLog(string.Format("{0} sent an alliance request.", playerNames[currentPlayerIndex]));
         GameLog.StaticMGG(string.Format("REQ{0} {1}", currentPlayerIndex + 1, allianceRequest + 1));
         if (TEST_FLAG) {
             PhotonNetwork.LocalPlayer.NickName = playerNames[allianceRequest];
@@ -417,22 +432,24 @@ public class Board : MonoBehaviour, IPunObservable {
     }
     [PunRPC]
     public void RespondToAllianceRequest(bool yes, PhotonMessageInfo info) {
-        int senderIndex = Array.FindIndex(playerNames, t => t.Equals(info.Sender.NickName, StringComparison.InvariantCultureIgnoreCase));
-        if (senderIndex != allianceRequest) {
-            return;
+        if (!PUNManager.hotseatMode) {
+            int senderIndex = Array.FindIndex(playerNames, t => t.Equals(info.Sender.NickName, StringComparison.InvariantCultureIgnoreCase));
+            if (senderIndex != allianceRequest) {
+                return;
+            }
         }
         if (yes) {
             SetAlliance(currentPlayerIndex, allianceRequest, true);
-            photonView.RPC("Log", RpcTarget.All, string.Format("{0} is now allied with {1}!", playerNames[currentPlayerIndex], playerNames[allianceRequest]));
+            BroadcastLog(string.Format("{0} is now allied with {1}!", playerNames[currentPlayerIndex], playerNames[allianceRequest]));
         } else {
-            photonView.RPC("Log", RpcTarget.All, string.Format("{0}'s alliance request was denied.", playerNames[currentPlayerIndex]));
+            BroadcastLog(string.Format("{0}'s alliance request was denied.", playerNames[currentPlayerIndex]));
         }
         GameLog.StaticMGG(yes ? "YES" : "NO");
         AdvanceCurrentPlayer();
     }
     [PunRPC]
     public void BreakAlliance(int index, PhotonMessageInfo info) {
-        if (!IsCurrentPlayer(info.Sender.NickName)) {
+        if (!PUNManager.hotseatMode && !IsCurrentPlayer(info.Sender.NickName)) {
             return;
         }
         if (allianceRequest >= 0) {
@@ -441,7 +458,7 @@ public class Board : MonoBehaviour, IPunObservable {
         SetAlliance(currentPlayerIndex, index, false);
         BrokenAllianceKillCheck(currentPlayerIndex, index);
         ManualUpdate(); // Photon doesn't check array contents to trigger serialization.
-        photonView.RPC("Log", RpcTarget.All, string.Format("{0} broke their alliance with {1}!", playerNames[currentPlayerIndex], playerNames[index]));
+        BroadcastLog(string.Format("{0} broke their alliance with {1}!", playerNames[currentPlayerIndex], playerNames[index]));
         GameLog.StaticMGG(string.Format("BRK{0} {1}", currentPlayerIndex + 1, index + 1));
     }
     void BrokenAllianceKillCheck(int one, int two) {
@@ -473,16 +490,23 @@ public class Board : MonoBehaviour, IPunObservable {
     }
     [PunRPC]
     public void Pass(PhotonMessageInfo info) {
-        if (!IsCurrentPlayer(info.Sender.NickName)) {
+        if (!PUNManager.hotseatMode && !IsCurrentPlayer(info.Sender.NickName)) {
             return;
         }
         if (allianceRequest >= 0) {
             return;
         }
-        photonView.RPC("Log", RpcTarget.All, string.Format("{0} passes.", playerNames[currentPlayerIndex]));
+        BroadcastLog(string.Format("{0} passes.", playerNames[currentPlayerIndex]));
         AdvanceCurrentPlayer();
     }
 
+    void BroadcastLog(String line) {
+        if (PUNManager.hotseatMode) {
+            Log(line);
+        } else {
+            photonView.RPC("Log", RpcTarget.All, line);
+        }
+    }
     [PunRPC]
     public void Log(string line) {
         GameLog.Static(line);

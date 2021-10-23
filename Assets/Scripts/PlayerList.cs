@@ -25,6 +25,10 @@ public class PlayerList : MonoBehaviourPunCallbacks
     }
     void UpdateList()
     {
+        if (PUNManager.hotseatMode) {
+            UpdateListHotseat();
+            return;
+        }
         string[] nicks = PhotonNetwork.PlayerList.Select(p => p.NickName).ToArray();
         tmp.text = string.Format("Players waiting in room {0}:\n{1}", PhotonNetwork.CurrentRoom.Name, string.Join("\n", nicks));
         if (PhotonNetwork.IsMasterClient) {
@@ -36,5 +40,16 @@ public class PlayerList : MonoBehaviourPunCallbacks
                 tmp.text += string.Format("\n\n<size=60%>Press Enter to start the game with the first {0} players.", Board.PLAYER_COLORS.Length);
             }
         }
+    }
+    public void UpdateListHotseat() {
+        List<string> lines = new List<string>();
+        if (PUNManager.localPlayers.Count < Board.PLAYER_COLORS.Length) {
+            lines.Add("Press F1 to add a player.");
+        }
+        lines.Add(string.Join("\n", PUNManager.localPlayers));
+        if (PUNManager.localPlayers.Count > 1) {
+            lines.Add("\n\n<size=60%>Press Enter to start the game with these players.");
+        }
+        tmp.text = string.Join("\n", lines);
     }
 }

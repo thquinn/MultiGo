@@ -1143,6 +1143,8 @@ MonoBehaviour:
     type: 3}
   playerListPrefab: {fileID: 8515986591457762839, guid: 1ac978f9dd619d442b897a906bfaa2bb,
     type: 3}
+  localPlayerInputPrefab: {fileID: 7916375171316762523, guid: 0e94ef7afa03032449aeee3814007c1a,
+    type: 3}
   boardPrefab: {fileID: 6432445170395813419, guid: 449a6476e349a0f4da67df34d0f2314a,
     type: 3}
 --- !u!4 &1566853512

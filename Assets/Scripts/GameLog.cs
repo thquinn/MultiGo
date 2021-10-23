@@ -21,6 +21,7 @@ public class GameLog : MonoBehaviour
     Board board;
     List<string> lines;
     StringBuilder stringBuilder;
+    Guid localGuid;
 
     void Start() {
         cam = Camera.main;
@@ -30,6 +31,7 @@ public class GameLog : MonoBehaviour
         logTMP.text = "";
         lines = new List<string>();
         stringBuilder = new StringBuilder();
+        localGuid = Guid.NewGuid();
     }
     public static void Associate(Board board) {
         instance.board = board;
@@ -40,7 +42,9 @@ public class GameLog : MonoBehaviour
         }
         Collider2D collider = Util.GetMouseCollider(cam, layerMaskBoardIntersection);
         gridCoorTMP.text = collider == null ? "" : Util.GetMGGCoorFromIndex(board.width, board.height, board.gridColliders[collider]);
-        roomTMP.text = "Room: " + PhotonNetwork.CurrentRoom.Name;
+        if (!PUNManager.hotseatMode) {
+            roomTMP.text = "Room: " + PhotonNetwork.CurrentRoom.Name;
+        }
     }
 
     public static void Static(string line) {
@@ -64,10 +68,15 @@ public class GameLog : MonoBehaviour
         instance.AddToGameLog(line);
     }
     public void AddToGameLog(string line) {
-        if (!PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey("guid")) {
-            return;
+        string guid;
+        if (PUNManager.hotseatMode) {
+            guid = localGuid.ToString();
+        } else {
+            if (!PhotonNetwork.CurrentRoom.CustomProperties.ContainsKey("guid")) {
+                return;
+            }
+            guid = (string)PhotonNetwork.CurrentRoom.CustomProperties["guid"];
         }
-        string guid = (string)PhotonNetwork.CurrentRoom.CustomProperties["guid"];
         string path = string.Format("{0}/{1}.mgg", Application.persistentDataPath, guid);
         using(StreamWriter sw = File.AppendText(path)) {
             sw.WriteLine(line);

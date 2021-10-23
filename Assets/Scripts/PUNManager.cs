@@ -10,10 +10,13 @@ using UnityEngine.SceneManagement;
 
 public class PUNManager : MonoBehaviourPunCallbacks
 {
+    public static bool hotseatMode = false;
+    public static List<string> localPlayers;
     public Canvas canvas;
-    public GameObject roomInputPrefab, playerListPrefab, boardPrefab;
+    public GameObject roomInputPrefab, playerListPrefab, localPlayerInputPrefab, boardPrefab;
 
     GameObject roomInput, playerList, board;
+    LocalPlayerInput localPlayerInput;
 
     void Start()
     {
@@ -23,8 +26,12 @@ public class PUNManager : MonoBehaviourPunCallbacks
         }
         PhotonNetwork.ConnectUsingSettings();
         GameLog.Static("Connecting to server...");
+        GameLog.Static("Press F1 to switch to hotseat mode.");
     }
     public override void OnConnectedToMaster() {
+        if (hotseatMode) {
+            return;
+        }
         PhotonNetwork.JoinLobby(TypedLobby.Default);
         GameLog.Static("Connected to server.");
     }
@@ -44,6 +51,9 @@ public class PUNManager : MonoBehaviourPunCallbacks
         Application.Quit();
     }
     public override void OnJoinedLobby() {
+        if (hotseatMode) {
+            return;
+        }
         roomInput = Instantiate(roomInputPrefab, canvas.transform);
         GameLog.Static("Joined lobby.");
     }
@@ -71,26 +81,48 @@ public class PUNManager : MonoBehaviourPunCallbacks
     }
 
     void Update() {
-        if (Input.GetKeyDown(KeyCode.Return) && PhotonNetwork.InRoom && board == null) {
+        if (Input.GetKeyDown(KeyCode.Return) && (PhotonNetwork.InRoom || hotseatMode) && localPlayerInput == null && board == null) {
             StartGame();
         }
         if (Input.GetKeyDown(KeyCode.Escape)) {
-            if (PhotonNetwork.InRoom) {
+            if (PhotonNetwork.InRoom || hotseatMode) {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             } else {
                 Application.Quit();
             }
         }
+        if (Input.GetKeyDown(KeyCode.F1)) {
+            if (!hotseatMode && !PhotonNetwork.InRoom) {
+                // Initialize hotseat mode.
+                hotseatMode = true;
+                localPlayers = new List<string>();
+                playerList = Instantiate(playerListPrefab, canvas.transform);
+                Destroy(roomInput);
+                GameLog.Static("Switched to hotseat mode.");
+            } else if (hotseatMode && board == null && localPlayerInput == null && localPlayers.Count < Board.PLAYER_COLORS.Length) {
+                // Add a player.
+                localPlayerInput = Instantiate(localPlayerInputPrefab, canvas.transform).GetComponent<LocalPlayerInput>();
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.Return) && localPlayerInput != null) {
+            string name = localPlayerInput.GetName();
+            if (name.Length > 0) {
+                localPlayers.Add(name);
+                Destroy(localPlayerInput.gameObject);
+                playerList.GetComponent<PlayerList>().UpdateListHotseat();
+            }
+        }
     }
     void StartGame() {
-        if (!PhotonNetwork.IsMasterClient) {
+        if (!hotseatMode && !PhotonNetwork.IsMasterClient) {
             return;
         }
         if (!Application.isEditor && PhotonNetwork.PlayerList.Length <= 1) {
             return;
         }
-        board = PhotonNetwork.InstantiateSceneObject("Board", Vector3.zero, Quaternion.identity);
+        board = hotseatMode ? Instantiate(boardPrefab) : PhotonNetwork.InstantiateSceneObject("Board", Vector3.zero, Quaternion.identity);
         Board boardScript = board.GetComponent<Board>();
-        boardScript.InitPlayers(PhotonNetwork.PlayerList.Take(Board.PLAYER_COLORS.Length - 1).Select(p => p.NickName).ToArray().Shuffle());
+        string[] players = hotseatMode ? localPlayers.ToArray().Shuffle() : PhotonNetwork.PlayerList.Take(Board.PLAYER_COLORS.Length - 1).Select(p => p.NickName).ToArray().Shuffle();
+        boardScript.InitPlayers(players);
     }
 }
